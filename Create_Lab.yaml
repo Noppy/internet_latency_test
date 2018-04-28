@@ -232,7 +232,7 @@ Resources:
       - VPC
   LabSecurityGroup:
     Type: 'AWS::EC2::SecurityGroup'
-    Propertises:
+    Properties:
       VpcId: !Ref VPC
       GroupDescription: Allow access from test traffic
       SecurityGroupIngress:
