@@ -1,0 +1,283 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: "Create a environment for internet latency and throughput test."
+Mappings:
+  RegionMap:
+    us-east-1:
+      AMI: ami-97785bed
+    us-east-2:
+      AMI: ami-f63b1193
+    us-west-2:
+      AMI: ami-f2d3638a
+    us-west-1:
+      AMI: ami-824c4ee2
+    ca-central-1:
+      AMI: ami-a954d1cd
+    eu-west-1:
+      AMI: ami-d834aba1
+    eu-west-2:
+      AMI: ami-403e2524
+    eu-west-3:
+      AMI: ami-8ee056f3
+    eu-central-1:
+      AMI: ami-5652ce39
+    ap-southeast-1:
+      AMI: ami-68097514
+    ap-northeast-2:
+      AMI: ami-863090e8
+    ap-northeast-1:
+      AMI: ami-ceafcba8
+    ap-southeast-2:
+      AMI: mi-942dd1f6
+    ap-south-1:
+      AMI: ami-531a4c3c
+    sa-east-1:
+      AMI: ami-84175ae8
+    ap-northeast-3:
+      AMI: ami-68c1cf15
+Parameters:
+  KeyName:
+    Description: "Name of an existing EC2 key pair for SSH access to the EC2 instance."
+    Type: "AWS::EC2::KeyPair::KeyName"
+  VPCName:
+    Description: "allowed upper or lower case, numeric and _@- characters."
+    Type: String
+    AllowedPattern: "[a-zA-Z0-9=-@+¥[¥]¥<¥>._]*"
+    Default: InetTest
+    ConstraintDescription: "Can contain only ASCII characters."
+  VPCIPV4CIDR:
+    Description: "VPC CIDR: IPv4 CIDR format x.x.x.x/x"
+    Type: String
+    MinLength:      9
+    MaxLength:      18
+    AllowedPattern: "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})"
+    Default:        '10.10.0.0/16'
+    ConstraintDescription: "Must be a valid IP CIDR range of the form x.x.x.x/x"
+  PublicSubCIDR:
+    Description: "Public Subnet-A CIDR"
+    Type:        String
+    MinLength:   9
+    MaxLength:   18
+    AllowedPattern: "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})"
+    Default:     10.10.1.0/24
+    ConstraintDescription: "Must be a valid IP CIDR range of the form x.x.x.x/x"
+Metadata: 
+  AWS::CloudFormation::Interface: 
+    ParameterGroups: 
+      -
+        Label:
+          default: "Instance" 
+        Parameters:
+          - KeyName
+      -
+        Label: 
+          default: "VPC Configuration"
+        Parameters: 
+          - VPCName
+          - VPCIPV4CIDR
+      -
+        Label:
+          default: "Subnet Configuration"
+        Parameters:
+          - PublicSubCIDR
+#---------------------------------
+# Main
+#---------------------------------
+Resources:
+  # Define VPC
+  VPC:
+    Type: 'AWS::EC2::VPC'
+    Properties:
+      CidrBlock:          !Ref VPCIPV4CIDR
+      EnableDnsSupport:   true
+      EnableDnsHostnames: true
+      InstanceTenancy:    default
+      Tags:
+        - Key:   Name
+          Value: !Ref VPCName
+        - Key:   Application
+          Value: !Ref 'AWS::StackName'
+  #-------------------------
+  # Define Internet Gateway
+  #-------------------------
+  InetGW:
+    Type: 'AWS::EC2::InternetGateway'
+    Properties:
+      Tags:
+        - Key:    Name
+          Value:  !Join [ "-", [ !Ref 'VPCName', "IGW" ] ]
+        - Key:    Application
+          Value:  !Ref 'AWS::StackName'
+    DependsOn:
+      - VPC
+  AttachInetGW:
+    Type: 'AWS::EC2::VPCGatewayAttachment'
+    Properties:
+      InternetGatewayId: !Ref InetGW
+      VpcId: !Ref VPC
+    DependsOn:
+      - VPC
+      - InetGW
+  #-------------------------
+  # Define Subnets
+  #-------------------------
+  PublicSub:
+    Type : 'AWS::EC2::Subnet'
+    Properties:
+      VpcId:     !Ref VPC
+      CidrBlock: !Ref PublicSubCIDR
+      AvailabilityZone: !Select
+        - 0
+        - Fn::GetAZs: !Ref 'AWS::Region'
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key:   Name
+          Value: !Join [ "-", [ "PublicSub", !Ref 'VPCName' ] ]
+        - Key:   Application
+          Value: !Ref 'AWS::StackName'
+        - Key:   Network
+          Value: Public
+    DependsOn:
+      - VPC
+  #-------------------------
+  # Define route tables and attach to subnets
+  #-------------------------
+  PublicRouteTable:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key   : Name
+          Value : !Join [ "-", [ !Ref 'VPCName', 'Pub-RouteTable' ] ]
+        - Key: Application
+          Value: !Ref 'AWS::StackName'
+    DependsOn:
+      - VPC
+  InternetRote:
+    Type: 'AWS::EC2::Route'
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InetGW
+    DependsOn:
+      - AttachInetGW
+  #--- Attache
+  RouteTableAssociationPublicSub:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref PublicSub
+      RouteTableId: !Ref PublicRouteTable
+  #-------------------------
+  # Define Network ACL
+  #-------------------------
+  #--- Network ACL default table
+  NetworkACL0:
+    Type: "AWS::EC2::NetworkAcl"
+    Properties:
+      VpcId:    !Ref VPC
+      Tags:
+        - Key   : Name
+          Value : !Join [ "-", [ !Ref 'VPCName', 'NWACL-Def' ] ]
+        - Key: Application
+          Value: !Ref 'AWS::StackName'
+  InboundNWACLEntry0:
+    Type: "AWS::EC2::NetworkAclEntry"
+    Properties:
+      NetworkAclId: !Ref NetworkACL0
+      RuleNumber:   100
+      Protocol:     -1
+      RuleAction:   allow
+      Egress:       false
+      CidrBlock:    0.0.0.0/0
+  OutBoundNWACLEntry0:
+    Type: "AWS::EC2::NetworkAclEntry"
+    Properties:
+      NetworkAclId: !Ref NetworkACL0
+      RuleNumber:   100
+      Protocol:     -1
+      RuleAction:   allow
+      Egress:       true
+      CidrBlock:    0.0.0.0/0
+  #--- Attache
+  NetworkACLAssociationPublicSub:
+    Type: "AWS::EC2::SubnetNetworkAclAssociation"
+    Properties:
+      SubnetId: !Ref PublicSub
+      NetworkAclId: !Ref NetworkACL0
+    DependsOn:
+      - NetworkACL0
+      - PublicSub
+  #-------------------------
+  # Define Security Group
+  #-------------------------
+  WebSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      VpcId: !Ref VPC
+      GroupDescription: Allow access from HTTP and HTTPS traffic
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort:   80
+          ToPort:     80
+          CidrIp:     0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort:   443
+          ToPort:     443
+          CidrIp:     0.0.0.0/0
+      Tags:
+        - Key   : Name
+          Value : !Join [ "-", [ !Ref 'VPCName', 'WebSG' ] ]
+        - Key: Application
+          Value: !Ref 'AWS::StackName'
+    DependsOn:
+      - VPC
+  SSHSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      VpcId: !Ref VPC
+      GroupDescription: Allow access from SSH traffic
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort:   22
+          ToPort:     22
+          CidrIp:     0.0.0.0/0
+      Tags:
+        - Key   : Name
+          Value : !Join [ "-", [ !Ref 'VPCName', 'SSHSG' ] ]
+        - Key: Application
+          Value: !Ref 'AWS::StackName'
+    DependsOn:
+      - VPC
+  #-------------------------
+  # EC2 instance
+  #-------------------------
+  Server:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      ImageId: !FindInMap 
+        - RegionMap
+        - !Ref 'AWS::Region'
+        - AMI
+      InstanceType: 't2.micro'
+      Monitoring: no
+      KeyName: !Ref 'KeyName'
+      NetworkInterfaces:
+        - AssociatePublicIpAddress: true
+          DeviceIndex: 0
+          SubnetId: !Ref 'PublicSub'
+          GroupSet:
+            - !Ref 'SSHSecurityGroup'
+            - !Ref 'WebSecurityGroup'
+      Tags:
+        - Key   : Name
+          Value : !Join [ "-", [ !Ref 'VPCName', 'Server' ] ]
+        - Key: Application
+          Value: !Ref 'AWS::StackName'
+    DependsOn:
+      - InetGW
+      - PublicSub
+      - SSHSecurityGroup
+      - WebSecurityGroup
+Outputs:
+  Server:
+    Value: !GetAtt Server.PublicDnsName
+    Description: 'Server Public DNS Name'
