@@ -230,6 +230,27 @@ Resources:
           Value: !Ref 'AWS::StackName'
     DependsOn:
       - VPC
+  LabSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Propertises:
+      VpcId: !Ref VPC
+      GroupDescription: Allow access from test traffic
+      SecurityGroupIngress:
+        - IpProtocol: udp
+          FromPort:   6600
+          ToPort:     6600
+          CidrIp:     0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort:   6601
+          ToPort:     6601
+          CidrIp:     0.0.0.0/0
+      Tags:
+        - Key   : Name
+          Value : !Join [ "-", [ !Ref 'VPCName', 'LabSG' ] ]
+        - Key: Application
+          Value: !Ref 'AWS::StackName'
+    DependsOn:
+      - VPC
   SSHSecurityGroup:
     Type: 'AWS::EC2::SecurityGroup'
     Properties:
@@ -267,6 +288,7 @@ Resources:
           GroupSet:
             - !Ref 'SSHSecurityGroup'
             - !Ref 'WebSecurityGroup'
+            - !Ref 'LabSecurityGroup'
       Tags:
         - Key   : Name
           Value : !Join [ "-", [ !Ref 'VPCName', 'Server' ] ]
