@@ -104,9 +104,9 @@ int main(int argc, char* args[]) {
         }
 
         /* calculate latency */
-        result[i].latency = ( (long)(result[i].end.tv_sec - result[i].start.tv_sec)*1000L
-                             +(long)(result[i].end.tv_nsec - result[i].start.tv_nsec)/1000000L )/2;
-        printf("latency=%ld ms\n", result[i].latency);
+        result[i].latency = ( (long)(result[i].end.tv_sec - result[i].start.tv_sec)*100000L
+                             +(long)(result[i].end.tv_nsec - result[i].start.tv_nsec)/10000L )/2L;
+        printf("latency=%ld.%02ld ms\n", result[i].latency/100, result[i].latency-(result[i].latency/100)*100 );
 
         /* interval */
         (void)usleep( 300000 );
@@ -146,14 +146,15 @@ int main(int argc, char* args[]) {
 
     for(i=0; i<count; i++){
         struct str_result *pt = result + i;
-        printf("%3d %d %ld.%ld %ld.%ld latency=%ld ms\n",
+        printf("%3d %d %ld.%ld %ld.%ld latency=%ld.%02ld ms\n",
                count,
                pt->timeout,
                pt->start.tv_sec,
                pt->start.tv_nsec,
                pt->end.tv_sec,
                pt->end.tv_nsec,
-               pt->latency);
+               pt->latency/100,
+               pt->latency-(pt->latency/100)*100 );
     }
     return 0;
 }

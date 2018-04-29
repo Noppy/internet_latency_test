@@ -16,6 +16,6 @@ echo_client: echo_client.o
 
 .PHONY: clean
 clean:
-	rm -rf echo_?client echo_server *.o
+	rm -rf echo_client echo_server *.o
 
 
