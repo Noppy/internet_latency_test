@@ -1,5 +1,5 @@
 CC      = gcc
-CFLAGS  = -Wall -O2
+CFLAGS  = -Wall -g
 LDLIBS  =
 PROGRAM = echo_client echo_server
 

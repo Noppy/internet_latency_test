@@ -30,8 +30,7 @@ void die_with_error(char *errorMessage) {
 
 int main(int argc, char* args[]) {
     int    sock;
-    struct sockaddr_in addr;
-    struct hostent *host;
+    struct addrinfo hints, *res;
     char   buffer[BUFFER_SIZE];
     char   recv_mes[BUFFER_SIZE];
     int    count, i;
@@ -50,17 +49,23 @@ int main(int argc, char* args[]) {
         die_with_error("can not malloc");
     }
 
-    /* get host */
-    host = gethostbyname(args[2]);
-    if( host == NULL ){
-        die_with_error("can not get host");
-    }
+    /* resolv target */
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family   = AF_UNSPEC;  /* IPv4 or IPv6 */
+    hints.ai_socktype = SOCK_DGRAM; /* Datagram socket */     
+    hints.ai_flags    = 0;
+    hints.ai_protocol = 0;          /* Any protoclo */
 
-    /* set socket */
-    sock            = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP);
-    addr.sin_family = AF_INET;
-    addr.sin_port   = htons( PORT );
-    addr.sin_addr   = *(struct in_addr *)(host->h_addr_list[0]);
+    i = getaddrinfo(args[2], PORT_STRING, &hints, &res);
+    if( i != 0 ){
+        die_with_error("error in getaddrinfo");
+    }
+      
+    /* create socket */
+    sock = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
+    if( sock < 0 ){
+        die_with_error("can not create socket");
+    }
 
     for(i=0; i< count; i++){
         struct pollfd fds[0];
@@ -75,8 +80,7 @@ int main(int argc, char* args[]) {
  
         /* send message */
         (void)clock_gettime(CLOCK_REALTIME, &(result[i].start));
-        sendto(sock, args[3], strlen(args[3]), 0,
-                  (struct sockaddr *)&addr, sizeof(addr));
+        (void)sendto(sock, args[3], strlen(args[3]), 0, res->ai_addr, res->ai_addrlen);
 
         /* receive message */
         ret = poll(fds,1,TIMEOUT);
@@ -90,18 +94,22 @@ int main(int argc, char* args[]) {
             printf("time out!!\n");
         }else if( fds[0].revents & POLLIN ){
             /* receive data is available */
-            recv(sock, recv_mes, sizeof(recv_mes), 0);
+            (void)recv(sock, recv_mes, sizeof(recv_mes), 0);
             (void)clock_gettime(CLOCK_REALTIME, &(result[i].end));
             result[i].timeout = FALSE;
 
-            printf("receive=%s\n",recv_mes);
+            printf("receive=%s ",recv_mes);
         }else{
             die_with_error("why?");
         }
 
         /* calculate latency */
-       result[i].latency = ( (long)(result[i].end.tv_sec - result[i].start.tv_sec)*1000L
+        result[i].latency = ( (long)(result[i].end.tv_sec - result[i].start.tv_sec)*1000L
                              +(long)(result[i].end.tv_nsec - result[i].start.tv_nsec)/1000000L )/2;
+        printf("latency=%ld ms\n", result[i].latency);
+
+        /* interval */
+        (void)usleep( 300000 );
 
     }
 
@@ -120,7 +128,7 @@ int main(int argc, char* args[]) {
             invalid++;
         }else{
             valid++;
-            total =+ pt->latency;
+            total += pt->latency;
             if( pt->latency < min ){
                 min = pt->latency;
             }
