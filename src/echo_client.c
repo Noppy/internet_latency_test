@@ -32,7 +32,6 @@ int main(int argc, char* args[]) {
     int    sock;
     struct sockaddr_in addr;
     struct hostent *host;
-    struct timeval timeout;
     char   buffer[BUFFER_SIZE];
     char   recv_mes[BUFFER_SIZE];
     int    count, i;
@@ -62,10 +61,6 @@ int main(int argc, char* args[]) {
     addr.sin_family = AF_INET;
     addr.sin_port   = htons( PORT );
     addr.sin_addr   = *(struct in_addr *)(host->h_addr_list[0]);
-
-    /* imer for select */
-    timeout.tv_sec  = TIMEOUT;
-    timeout.tv_usec = 0;
 
     for(i=0; i< count; i++){
         struct pollfd fds[0];
@@ -105,19 +100,18 @@ int main(int argc, char* args[]) {
         }
 
         /* calculate latency */
-       result[i].latency = (long)(result[i].end.tv_sec - result[i].start.tv_sec)*1000L
-                           +(long)(result[i].end.tv_nsec - result[i].start.tv_nsec)/1000000L;
-
+       result[i].latency = ( (long)(result[i].end.tv_sec - result[i].start.tv_sec)*1000L
+                             +(long)(result[i].end.tv_nsec - result[i].start.tv_nsec)/1000000L )/2;
 
     }
 
     /* close socket */
     close(sock);
 
-    /* print result */
+    /* calculate average */
     long long average, total, min, max, loss;
     int valid, invalid;
-    average = valid = invalid = 0;
+    average = total = valid = invalid = 0;
     min = LLONG_MAX;
     max = -1;
     for(i=0; i<count; i++){
@@ -139,7 +133,7 @@ int main(int argc, char* args[]) {
     loss    = (long long)invalid*10000 / (long long)(invalid+valid);
 
     printf("average(ms), min(ms), max(ms), loss(%%x100), valid, invalid, host\n");
-    printf("result= %ld, %ld, %ld, %ld, %d, %d, %s\n",
+    printf("result= %lld, %lld, %lld, %lld, %d, %d, %s\n",
            average, min, max, loss, valid, invalid, args[2]);
 
     for(i=0; i<count; i++){
