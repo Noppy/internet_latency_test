@@ -328,6 +328,11 @@ Resources:
               cwd: "~/internet_latency_test/src"
             cmd04:
               command: "sudo nohup /usr/local/bin/echo_server &"
+            cmd05:
+              command: "sudo cp -p throughput_server /usr/local/bin/"
+              cwd: "~/internet_latency_test/src"
+            cmd04:
+              command: "sudo nohup /usr/local/bin/throughput_server &"
 Outputs:
   Server:
     Value: !GetAtt Server.PublicDnsName
