@@ -28,6 +28,15 @@ void die_with_error(char *errorMessage) {
     exit(1);
 }
 
+void print_latency(char *buffer, int n, long latency){
+    long msec, usec;
+
+    msec = latency/1000;
+    usec = latency - (latency/1000)*1000;
+    snprintf(buffer, n, "%ld.%03ld", msec, usec);
+}
+
+
 int main(int argc, char* args[]) {
     int    sock;
     struct addrinfo hints, *res;
@@ -104,9 +113,11 @@ int main(int argc, char* args[]) {
         }
 
         /* calculate latency */
-        result[i].latency = ( (long)(result[i].end.tv_sec - result[i].start.tv_sec)*100000L
-                             +(long)(result[i].end.tv_nsec - result[i].start.tv_nsec)/10000L )/2L;
-        printf("latency=%ld.%02ld ms\n", result[i].latency/100, result[i].latency-(result[i].latency/100)*100 );
+        result[i].latency = ( (long)(result[i].end.tv_sec - result[i].start.tv_sec)*1000000L
+                             +(long)(result[i].end.tv_nsec - result[i].start.tv_nsec)/1000L )/2L;
+        char buf[32];
+        print_latency(buf, sizeof(buf), result[i].latency);
+        printf("latency=%s ms\n", buf );
 
         /* interval */
         (void)usleep( 300000 );
@@ -140,21 +151,26 @@ int main(int argc, char* args[]) {
     average = total / valid;
     loss    = (long long)invalid*10000 / (long long)(invalid+valid);
 
+    char str_ave[32], str_min[32], str_max[32];
+    print_latency(str_ave, sizeof(str_ave), average);
+    print_latency(str_min, sizeof(str_min), min);
+    print_latency(str_max, sizeof(str_max), max);
     printf("average(ms), min(ms), max(ms), loss(%%x100), valid, invalid, host\n");
-    printf("result= %lld, %lld, %lld, %lld, %d, %d, %s\n",
-           average, min, max, loss, valid, invalid, args[2]);
+    printf("result= %s, %s, %s, %lld, %d, %d, %s\n",
+           str_ave, str_min, str_max, loss, valid, invalid, args[2]);
 
     for(i=0; i<count; i++){
         struct str_result *pt = result + i;
-        printf("%3d %d %ld.%ld %ld.%ld latency=%ld.%02ld ms\n",
+        char mes[32];
+        print_latency(mes, sizeof(mes), pt->latency);
+        printf("%3d %d %ld.%ld %ld.%ld latency=%s ms\n",
                count,
                pt->timeout,
                pt->start.tv_sec,
                pt->start.tv_nsec,
                pt->end.tv_sec,
                pt->end.tv_nsec,
-               pt->latency/100,
-               pt->latency-(pt->latency/100)*100 );
+               mes);
     }
     return 0;
 }
