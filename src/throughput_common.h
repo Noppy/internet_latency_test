@@ -1,0 +1,2 @@
+#define PORT_THROUGH  "6601"
+#define DELIMITER_CODE "FDELIMITER_jkHiGLKjd"
