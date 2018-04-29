@@ -327,12 +327,12 @@ Resources:
               command: "sudo cp -p echo_server /usr/local/bin/"
               cwd: "~/internet_latency_test/src"
             cmd04:
-              command: "echo ¥"nohup /usr/local/bin/echo_server & > /etc/rc.d/rc.local¥" " 
+              command: "echo \"nohup /usr/local/bin/echo_server &\" > /etc/rc.d/rc.local"
             cmd05:
               command: "sudo cp -p throughput_server /usr/local/bin/"
               cwd: "~/internet_latency_test/src"
             cmd06:
-              command: "sudo ¥"nohup /usr/local/bin/throughput_server & > /etc/rc.d/rc.local¥" "
+              command: "sudo \"nohup /usr/local/bin/throughput_server &\" > /etc/rc.d/rc.local"
 Outputs:
   Server:
     Value: !GetAtt Server.PublicDnsName
