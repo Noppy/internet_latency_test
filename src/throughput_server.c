@@ -1,14 +1,21 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/wait.h>
 #include <netdb.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <errno.h>
 #include "throughput_common.h"
 #define  BUFFER_SIZE 1024 * 1024
+#define  TIMEOUT            3000
+#define  KEEPALIVE_DELAY    10
+#define  KEEPALIVE_INTERVAL 5
+#define  KEEPALIVE_COUNT    2
 
 void die_with_error(char *errorMessage) {
     perror(errorMessage);
@@ -22,13 +29,8 @@ int main(int argc, char* args[]){
     int    clientAddrLength;
     struct addrinfo hints, *res;
     char   buffer[BUFFER_SIZE];
-    char   delimiter[256];
-    int    delimiter_len;
+    pid_t  pid, cpid, status;
     int    ret;
-
-    /* set delimiter code */
-    strncpy(delimiter, DELIMITER_CODE, sizeof(delimiter));
-    delimiter_len = strlen(delimiter);
 
     /* resolv address */
     memset(&hints, 0, sizeof(hints));
@@ -47,7 +49,12 @@ int main(int argc, char* args[]){
     if( sock < 0 ){
         die_with_error("can not create socket");
     }
-
+    int option;
+    option=1;                 setsockopt( sock, SOL_SOCKET,  SO_KEEPALIVE, (void *)&option, sizeof(option) );
+    option=KEEPALIVE_DELAY;   setsockopt( sock, IPPROTO_TCP, TCP_KEEPIDLE, (void *)&option, sizeof(option) );
+    option=KEEPALIVE_INTERVAL;setsockopt( sock, IPPROTO_TCP, TCP_KEEPINTVL,(void *)&option, sizeof(option) );
+    option=KEEPALIVE_COUNT;   setsockopt( sock, IPPROTO_TCP, TCP_KEEPCNT,  (void *)&option, sizeof(option) );
+  
     /* bind & listen */
     ret = bind(sock, res->ai_addr, res->ai_addrlen);
     if( ret < 0 ){
@@ -62,34 +69,39 @@ int main(int argc, char* args[]){
   
     /* main loop */
     for( ;; ){
-	clientAddrLength = sizeof(clientAddr);
+        ssize_t size, ret_recv;
 
         /* accept */
         socktmp = accept(sock, (struct sockaddr *)&clientAddr, &clientAddrLength); 
 
-        /* recive data */
-        printf("accept a session\n");
-        ssize_t size, ret_recv;
-        size = 0;
-        for( ;; ){ 
-            ret_recv = recv(socktmp, buffer, sizeof(buffer), 0);
-            if( ret_recv < 0 ){
-                perror("recive data");
-                break;
+        pid = fork();
+        if( pid < 0 ){
+            die_with_error("can not fork");
+        }else if( pid != 0 ){
+            /* parent process */
+            while ((cpid = waitpid(-1, &status, WNOHANG)) > 0);
+        }else{        
+            /* recive data */
+            printf("fork process\naccept a session\n");
+            size = 0;
+            for( ;; ){ 
+                ret_recv = recv(socktmp, buffer, sizeof(buffer), 0);
+                if( ret_recv <= 0 ){
+                    break;
+                }
+                if( strncmp(buffer, "EOF", 3) == 0){
+                    printf("done\n");
+                    break;
+                }
+                size += ret_recv; 
             }
-            if( strncmp( buffer, delimiter, delimiter_len ) == 0 ){
-                break;
-            }
-            size += ret_recv; 
-        }
-        printf("recieve %zu byte\n", size);
+            printf("recieve %zu byte\n", size);
 
-        /* send data */
-        //memset(buffer, 0xFF, sizeof(buffer) );
-        
-        /* close */
-        close(socktmp);
-        printf("close a session\n");
+            /* close */
+            close(socktmp);
+            printf("close a session\n");
+            return(EXIT_SUCCESS);
+        }
     }
     close(sock);
     
