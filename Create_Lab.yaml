@@ -294,42 +294,40 @@ Resources:
           Value : !Join [ "-", [ !Ref 'VPCName', 'Server' ] ]
         - Key: Application
           Value: !Ref 'AWS::StackName'
-      UserData: !Base64: !Sub |
-        #!/bin/bash -xe\n
-        yum update -y aws-cfn-bootstrap
-        /opt/aws/bin/cfn-init -v --stack ${AWS::StackName}      --resource Server --region ${AWS::Region}
-        /opt/aws/bin/cfn-signal -e $? --stack ${AWS::StackName} --resource Server --region ${AWS::Region}
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash -xe
+          yum update -y aws-cfn-bootstrap
+          /opt/aws/bin/cfn-init -v --stack ${AWS::StackName}      --resource Server --region ${AWS::Region}
+          /opt/aws/bin/cfn-signal -e $? --stack ${AWS::StackName} --resource Server --region ${AWS::Region}
     DependsOn:
       - InetGW
       - PublicSub
       - SSHSecurityGroup
       - WebSecurityGroup
     Metadata:
-      Comment: Install Lab tool
       AWS::CloudFormation::Init:
-      config:
-        packages:
-          yum:
-            gcc: []
-            git: []
-        users:
-          labuser:
-            groups:
-              - users
-      commands:
-        cmd01:
-          command: "git clone https://github.com/Noppy/internet_latency_test.git"
-          cwd: "~"
-        cmd02:
-          command: "make"
-          cwd: "~/internet_latency_test/src"
-        cmd03:
-          command: "sudo cp -p echo_server /usr/local/bin/"
-          cwd: "~/internet_latency_test/src"
-        cmd04:
-          command: "sudo nohup /usr/local/bin/echo_server &"
-        cmd05:
-          command: "sudo echo \"nohup /usr/local/bin/echo_server &\" >>  /etc/rc.d/rc.local"
+        config:
+          packages:
+            yum:
+              gcc: []
+              git: []
+          users:
+            labuser:
+              groups:
+                - users
+          commands:
+            cmd01:
+              command: "git clone https://github.com/Noppy/internet_latency_test.git"
+              cwd: "~"
+            cmd02:
+              command: "make"
+              cwd: "~/internet_latency_test/src"
+            cmd03:
+              command: "sudo cp -p echo_server /usr/local/bin/"
+              cwd: "~/internet_latency_test/src"
+            cmd04:
+              command: "sudo nohup /usr/local/bin/echo_server &"
 Outputs:
   Server:
     Value: !GetAtt Server.PublicDnsName
