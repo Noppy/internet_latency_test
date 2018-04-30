@@ -1,11 +1,11 @@
 #/bin/bash
 
 #latency test
-TIMES=1
+TIMES=1000
 MESSAGE="TEst"
 
 #thorough put test
-SIZE_MB=1
+SIZE_MB=1024   #1GB
 
 title[0]=singapore;   host[0]=xx.xx.xx.xx.ap-southeast-1.compute.amazonaws.com
 title[1]=tokyo;       host[1]=xx.xx.xx.xx.ap-northeast-1.compute.amazonaws.com
