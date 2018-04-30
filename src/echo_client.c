@@ -116,8 +116,8 @@ int main(int argc, char* args[]) {
         result[i].latency = ( (long)(result[i].end.tv_sec - result[i].start.tv_sec)*1000000L
                              +(long)(result[i].end.tv_nsec - result[i].start.tv_nsec)/1000L )/2L;
         char buf[32];
-        print_latency(buf, sizeof(buf), result[i].latency);
-        printf("latency=%s ms\n", buf );
+        // print_latency(buf, sizeof(buf), result[i].latency);
+        // printf("latency=%s ms\n", buf );
 
         /* interval */
         (void)usleep( 300000 );
