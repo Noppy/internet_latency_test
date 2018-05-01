@@ -107,7 +107,7 @@ int main(int argc, char* args[]) {
             (void)clock_gettime(CLOCK_REALTIME, &(result[i].end));
             result[i].timeout = FALSE;
 
-            printf("receive=%s ",recv_mes);
+            //printf("receive=%s ",recv_mes);
         }else{
             die_with_error("why?");
         }
